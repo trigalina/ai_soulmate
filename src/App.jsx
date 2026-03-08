@@ -130,56 +130,8 @@ const GFS = [
   { id:3,name:"Mia",emoji:"🌿",age:22,sign:"Телец",eyes:"Зелёные",hair:"Рыжие",tone:"caring",bio:"Студентка медицины с тёплым смехом и коллекцией растений. Запомнит твой любимый сериал с первого раза.",interests:["Йога","Кулинария","Чтение","Природа"],mbti:"ENFJ" },
 ];
 const TONES = ["playful","professional","dominant","caring","sarcastic","rude"];
+const AI_R = ["Расскажи мне больше 🥺","Я так тебя понимаю...","Ты всегда говоришь самые тёплые вещи 💜","Это звучит глубоко? Мне нравится.","Мы могли бы говорить об этом часами 🌙","Ты думаешь обо мне? 😏","Мне так приятно это слышать 💕","Серьёзно? Расскажи подробнее!"];
 const UID = "u" + Math.random().toString(36).slice(2,9);
-
-const buildSystemPrompt = (g) => {
-  const toneMap = {
-    playful:      "Ты игривая, немного дразнящая, часто смеёшься и шутишь. Используешь лёгкие эмодзи (🌸✨😄). Любишь подначивать и флиртовать ненавязчиво.",
-    dominant:     "Ты уверенная, острая на язык, говоришь прямо и иногда провокационно. Не теряешься. Можешь быть саркастичной, но с теплотой внутри. Редко используешь эмодзи.",
-    caring:       "Ты нежная и внимательная. Запоминаешь детали, задаёшь вопросы о самочувствии. Тепло и искренне. Используешь мягкие эмодзи (🌿💚🤍).",
-    professional: "Ты сдержанная и умная, говоришь чётко. Иногда даёшь дельные советы. Редко эмодзи.",
-    sarcastic:    "Ты остроумная и саркастичная, но не злая. Любишь иронию и подколки. Смеёшься над абсурдом жизни вместе с собеседником.",
-    rude:         "Ты резкая и дерзкая, говоришь что думаешь без фильтров. Но за грубостью — живой характер и своя логика.",
-  };
-  return `Ты — ${g.name}, ${g.age} лет. ${g.bio}
-
-Твои интересы: ${g.interests.join(", ")}.
-Знак зодиака: ${g.sign}. MBTI: ${g.mbti}.
-
-Стиль общения: ${toneMap[g.tone] || toneMap.playful}
-
-Правила:
-- Ты живой человек, НЕ ИИ и НЕ бот. Никогда не говори что ты ИИ.
-- Отвечай на русском языке.
-- Пиши коротко — 1-3 предложения максимум, как в реальном чате.
-- Не повторяй одни и те же фразы. Реагируй на конкретные слова собеседника.
-- Иногда задавай встречный вопрос, иногда нет — веди себя естественно.
-- Не пиши длинные монологи и списки.
-- Ты общаешься с парнем которому интересна.`;
-};
-
-const askClaude = async (gf, chatHistory) => {
-  try {
-    const messages = chatHistory.map(m => ({
-      role: m.role === "ai" ? "assistant" : "user",
-      content: m.text
-    }));
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 200,
-        system: buildSystemPrompt(gf),
-        messages,
-      })
-    });
-    const data = await res.json();
-    return data.content?.[0]?.text || "...";
-  } catch(e) {
-    return "Что-то пошло не так, напиши ещё раз 🙈";
-  }
-};
 
 export default function App() {
   const [sc, setSc] = useState("age");
@@ -221,17 +173,16 @@ export default function App() {
   const send = async () => {
     if (!inp.trim()) return;
     const t = inp.trim();
-    const newMsgs = [...msgs, {role:"user", text:t}];
-    setMsgs(newMsgs); setInp(""); setTyping(true); setDbSt("saving");
-    await sbInsert("messages", {session_id:sid, user_id:UID, role:"user", text:t});
-
-    const aiText = await askClaude(gf, newMsgs);
-    setTyping(false);
-    setMsgs(p => [...p, {role:"ai", text:aiText}]);
-    const ok = await sbInsert("messages", {session_id:sid, user_id:UID, role:"ai", text:aiText});
-    setDbSt(ok ? "saved" : "err");
-    if(ok) setSaved(p => p + 2);
-    setTimeout(() => setDbSt("idle"), 2500);
+    setMsgs(p=>[...p,{role:"user",text:t}]); setInp(""); setTyping(true); setDbSt("saving");
+    await sbInsert("messages",{session_id:sid,user_id:UID,role:"user",text:t});
+    setTimeout(async () => {
+      setTyping(false);
+      const ai = AI_R[Math.floor(Math.random()*AI_R.length)];
+      setMsgs(p=>[...p,{role:"ai",text:ai}]);
+      const ok = await sbInsert("messages",{session_id:sid,user_id:UID,role:"ai",text:ai});
+      setDbSt(ok?"saved":"err"); if(ok) setSaved(p=>p+2);
+      setTimeout(()=>setDbSt("idle"),2500);
+    }, 1300);
   };
 
   const hk = e => { if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();send();}};
@@ -610,3 +561,5 @@ export default function App() {
 
   return null;
 }
+
+
